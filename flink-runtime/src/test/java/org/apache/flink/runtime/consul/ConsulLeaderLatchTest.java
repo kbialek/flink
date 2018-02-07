@@ -44,7 +44,7 @@ public class ConsulLeaderLatchTest {
 		latch.start();
 
 		Thread.sleep(1000 * waitTime);
-		verify(listener).onLeadershipAcquired();
+		verify(listener).onLeadershipAcquired(eq("leader-address"), any(UUID.class));
 
 		latch.stop();
 	}
@@ -64,12 +64,12 @@ public class ConsulLeaderLatchTest {
 		latch2.start();
 
 		Thread.sleep(2000 * waitTime);
-		verify(listener1).onLeadershipAcquired();
+		verify(listener1).onLeadershipAcquired(eq("leader-address1"), any(UUID.class));
 		verify(listener2).onLeaderResolved(eq("leader-address1"), any(UUID.class));
 
 		latch1.stop();
 		Thread.sleep(2000 * waitTime);
-		verify(listener2).onLeadershipAcquired();
+		verify(listener2).onLeadershipAcquired(eq("leader-address2"), any(UUID.class));
 
 		latch2.stop();
 	}
@@ -84,7 +84,7 @@ public class ConsulLeaderLatchTest {
 		latch.start();
 
 		Thread.sleep(1000 * waitTime);
-		verify(listener).onLeadershipAcquired();
+		verify(listener).onLeadershipAcquired(eq("leader-address"), any(UUID.class));
 
 		consul.reset();
 		Thread.sleep(1000 * waitTime);
@@ -93,4 +93,21 @@ public class ConsulLeaderLatchTest {
 		latch.stop();
 	}
 
+
+	@Test
+	public void testWithConsulNotReachable() throws InterruptedException {
+		consul.close();
+
+		String leaderKey = "test-key";
+
+		ConsulLeaderLatchListener listener = mock(ConsulLeaderLatchListener.class);
+
+		ConsulLeaderLatch latch = new ConsulLeaderLatch(client, executor, leaderKey, "leader-address", listener, waitTime);
+		latch.start();
+
+		Thread.sleep(1000 * waitTime);
+		verify(listener).onError(any(Exception.class));
+
+		latch.stop();
+	}
 }

@@ -1,5 +1,6 @@
 package org.apache.flink.runtime.consul;
 
+import com.google.common.base.Preconditions;
 import org.apache.commons.lang3.builder.EqualsBuilder;
 import org.apache.commons.lang3.builder.HashCodeBuilder;
 import org.apache.commons.lang3.builder.ToStringBuilder;
@@ -14,8 +15,12 @@ final class ConsulLeaderData {
 	private final UUID sessionId;
 
 	public ConsulLeaderData(String address, UUID sessionId) {
-		this.address = address;
-		this.sessionId = sessionId;
+		this.address = Preconditions.checkNotNull(address, "address");
+		this.sessionId = Preconditions.checkNotNull(sessionId, "sessionId");
+	}
+
+	public static ConsulLeaderData from(String address, UUID sessionId) {
+		return new ConsulLeaderData(address, sessionId);
 	}
 
 	public static ConsulLeaderData from(byte[] bytes) {

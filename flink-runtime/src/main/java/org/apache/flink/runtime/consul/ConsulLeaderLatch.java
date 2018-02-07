@@ -79,30 +79,44 @@ public final class ConsulLeaderLatch {
 	public void stop() {
 		LOG.info("Stopping Consul Leadership Latch");
 		runnable = false;
-		client.sessionDestroy(consulSessionId, QueryParams.DEFAULT);
+		try {
+			client.sessionDestroy(consulSessionId, QueryParams.DEFAULT);
+		} catch (Exception e) {
+			LOG.error("Consul session destroy failed", e);
+		}
 	}
 
 	private void watch() {
 		while (runnable) {
-			createConsulSessionIfNecessary();
-			GetBinaryValue value = readLeaderKey();
-			String leaderSessionId = null;
-			if (value != null) {
-				leaderKeyIndex = value.getModifyIndex();
-				leaderSessionId = value.getSession();
-			}
+			try {
+				createConsulSessionIfNecessary();
+				GetBinaryValue value = readLeaderKey();
+				String leaderSessionId = null;
+				if (value != null) {
+					leaderKeyIndex = value.getModifyIndex();
+					leaderSessionId = value.getSession();
+				}
 
-			if (runnable) {
-				if (leaderSessionId == null) {
-					LOG.info("No hasLeadership elected. Current node is trying to register");
-					Boolean success = writeLeaderKey();
-					if (success) {
-						leadershipAcquired();
-					} else {
-						leadershipRevoked();
+				if (runnable) {
+					if (leaderSessionId == null) {
+						LOG.info("No hasLeadership elected. Current node is trying to register");
+						Boolean success = writeLeaderKey();
+						if (success) {
+							leadershipAcquired(ConsulLeaderData.from(nodeAddress, flinkSessionId));
+						} else {
+							leadershipRevoked();
+						}
+					} else if (!hasLeadership) {
+						leaderResolved(ConsulLeaderData.from(value.getValue()));
 					}
-				} else if (!hasLeadership) {
-					leaderResolved(ConsulLeaderData.from(value.getValue()));
+				}
+			} catch (Exception exception) {
+				listener.onError(exception);
+				// backoff
+				try {
+					Thread.sleep(waitTime * 1000);
+				} catch (InterruptedException ignored) {
+
 				}
 			}
 		}
@@ -141,10 +155,11 @@ public final class ConsulLeaderLatch {
 		}
 	}
 
-	private void leadershipAcquired() {
+	private void leadershipAcquired(ConsulLeaderData data) {
 		if (!hasLeadership) {
 			hasLeadership = true;
-			notifyOnLeadershipAcquired();
+			leaderData = data;
+			notifyOnLeadershipAcquired(data);
 			LOG.info("Cluster leadership has been acquired by current node");
 		}
 	}
@@ -165,9 +180,9 @@ public final class ConsulLeaderLatch {
 		}
 	}
 
-	private void notifyOnLeadershipAcquired() {
+	private void notifyOnLeadershipAcquired(ConsulLeaderData data) {
 		try {
-			listener.onLeadershipAcquired();
+			listener.onLeadershipAcquired(data.getAddress(), data.getSessionId());
 		} catch (Exception e) {
 			LOG.error("Listener failed on leadership acquired notification", e);
 		}
