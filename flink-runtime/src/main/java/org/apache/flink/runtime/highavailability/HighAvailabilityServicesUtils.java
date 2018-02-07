@@ -18,12 +18,14 @@
 
 package org.apache.flink.runtime.highavailability;
 
+import com.ecwid.consul.v1.ConsulClient;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.JobManagerOptions;
 import org.apache.flink.runtime.blob.BlobStoreService;
 import org.apache.flink.runtime.blob.BlobUtils;
 import org.apache.flink.runtime.dispatcher.Dispatcher;
+import org.apache.flink.runtime.highavailability.consul.ConsulHaServices;
 import org.apache.flink.runtime.highavailability.nonha.embedded.EmbeddedHaServices;
 import org.apache.flink.runtime.highavailability.nonha.standalone.StandaloneHaServices;
 import org.apache.flink.runtime.highavailability.zookeeper.ZooKeeperHaServices;
@@ -35,6 +37,7 @@ import org.apache.flink.runtime.util.LeaderRetrievalUtils;
 import org.apache.flink.runtime.util.ZooKeeperUtils;
 import org.apache.flink.util.ConfigurationException;
 
+import java.io.IOException;
 import java.util.concurrent.Executor;
 
 /**
@@ -59,12 +62,14 @@ public class HighAvailabilityServicesUtils {
 					executor,
 					config,
 					blobStoreService);
+			case CONSUL:
+				return createConsulHaService(config, executor);
 
 			default:
 				throw new Exception("High availability mode " + highAvailabilityMode + " is not supported.");
 		}
 	}
-	
+
 	public static HighAvailabilityServices createHighAvailabilityServices(
 		Configuration configuration,
 		Executor executor,
@@ -107,6 +112,9 @@ public class HighAvailabilityServicesUtils {
 					executor,
 					configuration,
 					blobStoreService);
+			case CONSUL:
+				return createConsulHaService(configuration, executor);
+
 			default:
 				throw new Exception("Recovery mode " + highAvailabilityMode + " is not supported.");
 		}
@@ -143,4 +151,15 @@ public class HighAvailabilityServicesUtils {
 		TRY_ADDRESS_RESOLUTION,
 		NO_ADDRESS_RESOLUTION
 	}
+
+	private static HighAvailabilityServices createConsulHaService(Configuration config, Executor executor) throws IOException {
+		BlobStoreService blobStoreService = BlobUtils.createBlobStoreFromConfig(config);
+
+		ConsulClient consulClient = new ConsulClient("localhost");
+		return new ConsulHaServices(consulClient,
+			executor,
+			config,
+			blobStoreService);
+	}
+
 }

@@ -1,3 +1,21 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package org.apache.flink.runtime.consul;
 
 import com.ecwid.consul.v1.ConsulClient;
@@ -5,8 +23,8 @@ import com.ecwid.consul.v1.QueryParams;
 import com.ecwid.consul.v1.Response;
 import com.ecwid.consul.v1.kv.model.GetBinaryValue;
 import com.ecwid.consul.v1.session.model.NewSession;
-import com.google.common.base.Preconditions;
 import org.apache.flink.runtime.leaderretrieval.LeaderRetrievalListener;
+import org.apache.flink.util.Preconditions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -56,20 +74,20 @@ public final class ConsulLeaderRetriever {
 	}
 
 	public void start() {
-		LOG.info("Starting Consul Leader Resolver");
+		LOG.info("Starting Consul Leader Retriever");
 		runnable = true;
 		executor.execute(this::watch);
 	}
 
 	public void stop() {
-		LOG.info("Stopping Consul Leader Resolver");
+		LOG.info("Stopping Consul Leader Retriever");
 		runnable = false;
 	}
 
 	private void watch() {
 		while (runnable) {
 			try {
-				createConsulSessionIfNecessary();
+				createOrRenewConsulSession();
 				GetBinaryValue value = readLeaderKey();
 				String leaderSessionId = null;
 				if (value != null) {
@@ -78,7 +96,7 @@ public final class ConsulLeaderRetriever {
 				}
 
 				if (runnable && leaderSessionId != null) {
-					leaderResolved(ConsulLeaderData.from(value.getValue()));
+					leaderRetrieved(ConsulLeaderData.from(value.getValue()));
 				}
 			} catch (Exception exception) {
 				listener.handleError(exception);
@@ -93,11 +111,26 @@ public final class ConsulLeaderRetriever {
 		destroyConsulSession();
 	}
 
-	private void createConsulSessionIfNecessary() {
+	private void createOrRenewConsulSession() {
 		if (consulSessionId == null) {
-			NewSession newSession = new NewSession();
-			newSession.setName("flink");
-			consulSessionId = client.sessionCreate(newSession, QueryParams.DEFAULT).getValue();
+			createConsulSession();
+		} else {
+			renewConsulSession();
+		}
+	}
+
+	private void createConsulSession() {
+		NewSession newSession = new NewSession();
+		newSession.setName("flink");
+		newSession.setTtl(String.format("%ds", Math.max(10, waitTime + 5)));
+		consulSessionId = client.sessionCreate(newSession, QueryParams.DEFAULT).getValue();
+	}
+
+	private void renewConsulSession() {
+		try {
+			client.renewSession(consulSessionId, QueryParams.DEFAULT);
+		} catch (Exception e) {
+			LOG.error("Consul session renew failed", e);
 		}
 	}
 
@@ -118,19 +151,19 @@ public final class ConsulLeaderRetriever {
 		return leaderKeyValue.getValue();
 	}
 
-	private void leaderResolved(ConsulLeaderData data) {
+	private void leaderRetrieved(ConsulLeaderData data) {
 		if (!data.equals(leaderData)) {
 			leaderData = data;
-			notifyOnLeaderResolved(data);
-			LOG.info("Cluster hasLeadership resolved {}", data);
+			notifyOnLeaderRetrieved(data);
+			LOG.info("Cluster leader retrieved {}", data);
 		}
 	}
 
-	private void notifyOnLeaderResolved(ConsulLeaderData data) {
+	private void notifyOnLeaderRetrieved(ConsulLeaderData data) {
 		try {
 			listener.notifyLeaderAddress(data.getAddress(), data.getSessionId());
 		} catch (Exception e) {
-			LOG.error("Listener failed on leadership revoked notification", e);
+			LOG.error("Listener failed on leader retrieved notification", e);
 		}
 	}
 
