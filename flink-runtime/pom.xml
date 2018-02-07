@@ -197,6 +197,12 @@ under the License.
 			<version>${project.version}</version>
 		</dependency>
 
+		<!-- Consul client -->
+		<dependency>
+			<groupId>com.ecwid.consul</groupId>
+			<artifactId>consul-api</artifactId>
+		</dependency>
+
 		<!-- test dependencies -->
 
 		<dependency>
@@ -235,6 +241,13 @@ under the License.
 		<dependency>
 			<groupId>org.reflections</groupId>
 			<artifactId>reflections</artifactId>
+		</dependency>
+
+		<dependency>
+			<groupId>com.pszymczyk.consul</groupId>
+			<artifactId>embedded-consul</artifactId>
+			<version>1.0.0</version>
+			<scope>test</scope>
 		</dependency>
 
 	</dependencies>
