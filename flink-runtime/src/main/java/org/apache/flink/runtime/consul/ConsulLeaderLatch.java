@@ -79,6 +79,7 @@ public final class ConsulLeaderLatch {
 	public void stop() {
 		LOG.info("Stopping Consul Leadership Latch");
 		runnable = false;
+		hasLeadership = false;
 		try {
 			client.sessionDestroy(consulSessionId, QueryParams.DEFAULT);
 		} catch (Exception e) {

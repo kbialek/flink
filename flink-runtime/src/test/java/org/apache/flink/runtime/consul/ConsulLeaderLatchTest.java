@@ -11,6 +11,8 @@ import java.util.UUID;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.*;
 
 public class ConsulLeaderLatchTest {
@@ -46,6 +48,8 @@ public class ConsulLeaderLatchTest {
 		Thread.sleep(1000 * waitTime);
 		verify(listener).onLeadershipAcquired(eq("leader-address"), any(UUID.class));
 
+		assertTrue(latch.hasLeadership());
+
 		latch.stop();
 	}
 
@@ -66,12 +70,19 @@ public class ConsulLeaderLatchTest {
 		Thread.sleep(2000 * waitTime);
 		verify(listener1).onLeadershipAcquired(eq("leader-address1"), any(UUID.class));
 		verify(listener2).onLeaderResolved(eq("leader-address1"), any(UUID.class));
+		assertTrue(latch1.hasLeadership());
+		assertFalse(latch2.hasLeadership());
 
 		latch1.stop();
 		Thread.sleep(2000 * waitTime);
 		verify(listener2).onLeadershipAcquired(eq("leader-address2"), any(UUID.class));
+		assertFalse(latch1.hasLeadership());
+		assertTrue(latch2.hasLeadership());
 
 		latch2.stop();
+		assertFalse(latch1.hasLeadership());
+		assertFalse(latch2.hasLeadership());
+
 	}
 
 	@Test
@@ -85,10 +96,12 @@ public class ConsulLeaderLatchTest {
 
 		Thread.sleep(1000 * waitTime);
 		verify(listener).onLeadershipAcquired(eq("leader-address"), any(UUID.class));
+		assertTrue(latch.hasLeadership());
 
 		consul.reset();
 		Thread.sleep(1000 * waitTime);
 		verify(listener).onLeadershipRevoked();
+		assertFalse(latch.hasLeadership());
 
 		latch.stop();
 	}
