@@ -8,7 +8,4 @@ public interface ConsulLeaderLatchListener {
 
 	void onLeadershipRevoked();
 
-	void onLeaderResolved(String address, UUID sessionId);
-
-	void onError(Exception exception);
 }

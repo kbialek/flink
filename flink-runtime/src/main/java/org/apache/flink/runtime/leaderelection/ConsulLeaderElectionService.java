@@ -20,13 +20,13 @@ package org.apache.flink.runtime.leaderelection;
 
 import com.ecwid.consul.v1.ConsulClient;
 import org.apache.flink.runtime.consul.ConsulLeaderLatch;
+import org.apache.flink.runtime.consul.ConsulLeaderLatchListener;
 import org.apache.flink.util.Preconditions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.UUID;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.Executor;
 
 /**
  * Leader election service for multiple JobManager. The leading JobManager is elected using
@@ -54,9 +54,7 @@ public class ConsulLeaderElectionService implements LeaderElectionService {
 	/**
 	 * Executor to run Consul client background tasks
 	 */
-	private final ScheduledExecutorService executor;
-
-	private UUID issuedLeaderSessionID;
+	private final Executor executor;
 
 	private volatile UUID confirmedLeaderSessionID;
 
@@ -67,6 +65,18 @@ public class ConsulLeaderElectionService implements LeaderElectionService {
 
 	private volatile boolean running;
 
+	private final ConsulLeaderLatchListener listener = new ConsulLeaderLatchListener() {
+		@Override
+		public void onLeadershipAcquired(String address, UUID sessionId) {
+			leaderContender.grantLeadership(sessionId);
+		}
+
+		@Override
+		public void onLeadershipRevoked() {
+			leaderContender.revokeLeadership();
+		}
+	};
+
 	/**
 	 * Creates a {@link ConsulLeaderElectionService} object.
 	 *
@@ -74,13 +84,12 @@ public class ConsulLeaderElectionService implements LeaderElectionService {
 	 * @param leaderPath ZooKeeper node path for the node which stores the current leader information
 	 */
 	public ConsulLeaderElectionService(ConsulClient client,
+									   Executor executor,
 									   String leaderPath) {
 		this.client = Preconditions.checkNotNull(client, "Consul client");
 		this.leaderPath = Preconditions.checkNotNull(leaderPath, "leaderPath");
+		this.executor = Preconditions.checkNotNull(executor, "executor");
 
-		this.executor = Executors.newSingleThreadScheduledExecutor();
-
-		issuedLeaderSessionID = null;
 		confirmedLeaderSessionID = null;
 		leaderContender = null;
 
@@ -101,13 +110,13 @@ public class ConsulLeaderElectionService implements LeaderElectionService {
 		Preconditions.checkNotNull(contender, "Contender must not be null.");
 		Preconditions.checkState(leaderContender == null, "Contender was already set.");
 
-		LOG.info("Starting ConsulLeaderElectionService {}.", this);
-
 		synchronized (lock) {
+			LOG.info("Starting ConsulLeaderElectionService {}.", this);
 
 			leaderContender = contender;
 
-			leaderLatch = new ConsulLeaderLatch(client, executor, leaderPath, contender.getAddress(), null, 10);
+			leaderLatch = new ConsulLeaderLatch(client, executor, leaderPath,
+				leaderContender.getAddress(), listener, 10);
 			leaderLatch.start();
 
 			running = true;
@@ -123,11 +132,8 @@ public class ConsulLeaderElectionService implements LeaderElectionService {
 
 			leaderLatch.stop();
 
-			executor.shutdownNow();
-
 			running = false;
 			confirmedLeaderSessionID = null;
-			issuedLeaderSessionID = null;
 		}
 
 		LOG.info("Stopping ZooKeeperLeaderElectionService {}.", this);

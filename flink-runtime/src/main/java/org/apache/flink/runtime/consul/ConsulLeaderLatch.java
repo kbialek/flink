@@ -43,8 +43,6 @@ public final class ConsulLeaderLatch {
 
 	private boolean hasLeadership;
 
-	private ConsulLeaderData leaderData;
-
 	private final ConsulLeaderLatchListener listener;
 
 	private final int waitTime;
@@ -80,11 +78,6 @@ public final class ConsulLeaderLatch {
 		LOG.info("Stopping Consul Leadership Latch");
 		runnable = false;
 		hasLeadership = false;
-		try {
-			client.sessionDestroy(consulSessionId, QueryParams.DEFAULT);
-		} catch (Exception e) {
-			LOG.error("Consul session destroy failed", e);
-		}
 	}
 
 	private void watch() {
@@ -107,12 +100,10 @@ public final class ConsulLeaderLatch {
 						} else {
 							leadershipRevoked();
 						}
-					} else if (!hasLeadership) {
-						leaderResolved(ConsulLeaderData.from(value.getValue()));
 					}
 				}
-			} catch (Exception exception) {
-				listener.onError(exception);
+			} catch (Exception e) {
+				LOG.error("Exception during leadership election", e);
 				// backoff
 				try {
 					Thread.sleep(waitTime * 1000);
@@ -121,6 +112,7 @@ public final class ConsulLeaderLatch {
 				}
 			}
 		}
+		destroyConsulSession();
 	}
 
 	public boolean hasLeadership() {
@@ -133,6 +125,14 @@ public final class ConsulLeaderLatch {
 			newSession.setName("flink");
 			consulSessionId = client.sessionCreate(newSession, QueryParams.DEFAULT).getValue();
 			flinkSessionId = UUID.randomUUID();
+		}
+	}
+
+	private void destroyConsulSession() {
+		try {
+			client.sessionDestroy(consulSessionId, QueryParams.DEFAULT);
+		} catch (Exception e) {
+			LOG.error("Consul session destroy failed", e);
 		}
 	}
 
@@ -159,7 +159,6 @@ public final class ConsulLeaderLatch {
 	private void leadershipAcquired(ConsulLeaderData data) {
 		if (!hasLeadership) {
 			hasLeadership = true;
-			leaderData = data;
 			notifyOnLeadershipAcquired(data);
 			LOG.info("Cluster leadership has been acquired by current node");
 		}
@@ -170,14 +169,6 @@ public final class ConsulLeaderLatch {
 			hasLeadership = false;
 			notifyOnLeadershipRevoked();
 			LOG.info("Cluster leadership has been revoked from current node");
-		}
-	}
-
-	private void leaderResolved(ConsulLeaderData data) {
-		if (!data.equals(leaderData)) {
-			leaderData = data;
-			notifyOnLeaderResolved(data);
-			LOG.info("Cluster hasLeadership resolved {}", data);
 		}
 	}
 
@@ -192,14 +183,6 @@ public final class ConsulLeaderLatch {
 	private void notifyOnLeadershipRevoked() {
 		try {
 			listener.onLeadershipRevoked();
-		} catch (Exception e) {
-			LOG.error("Listener failed on leadership revoked notification", e);
-		}
-	}
-
-	private void notifyOnLeaderResolved(ConsulLeaderData data) {
-		try {
-			listener.onLeaderResolved(data.getAddress(), data.getSessionId());
 		} catch (Exception e) {
 			LOG.error("Listener failed on leadership revoked notification", e);
 		}

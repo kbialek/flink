@@ -3,6 +3,7 @@ package org.apache.flink.runtime.consul;
 import com.ecwid.consul.v1.ConsulClient;
 import com.pszymczyk.consul.ConsulProcess;
 import com.pszymczyk.consul.ConsulStarterBuilder;
+import org.apache.flink.runtime.leaderretrieval.LeaderRetrievalListener;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -60,16 +61,20 @@ public class ConsulLeaderLatchTest {
 		ConsulLeaderLatchListener listener1 = mock(ConsulLeaderLatchListener.class);
 		ConsulLeaderLatchListener listener2 = mock(ConsulLeaderLatchListener.class);
 
+		LeaderRetrievalListener retrievalListener = mock(LeaderRetrievalListener.class);
+
 		ConsulLeaderLatch latch1 = new ConsulLeaderLatch(client, executor, leaderKey, "leader-address1", listener1, waitTime);
 		ConsulLeaderLatch latch2 = new ConsulLeaderLatch(client, executor, leaderKey, "leader-address2", listener2, waitTime);
+		ConsulLeaderRetriever leaderResolver = new ConsulLeaderRetriever(client, executor, leaderKey, retrievalListener, 1);
 
+		leaderResolver.start();
 		latch1.start();
 		Thread.sleep(100);
 		latch2.start();
 
 		Thread.sleep(2000 * waitTime);
 		verify(listener1).onLeadershipAcquired(eq("leader-address1"), any(UUID.class));
-		verify(listener2).onLeaderResolved(eq("leader-address1"), any(UUID.class));
+		verify(retrievalListener).notifyLeaderAddress(eq("leader-address1"), any(UUID.class));
 		assertTrue(latch1.hasLeadership());
 		assertFalse(latch2.hasLeadership());
 
@@ -114,12 +119,16 @@ public class ConsulLeaderLatchTest {
 		String leaderKey = "test-key";
 
 		ConsulLeaderLatchListener listener = mock(ConsulLeaderLatchListener.class);
+		LeaderRetrievalListener retrievalListener = mock(LeaderRetrievalListener.class);
 
 		ConsulLeaderLatch latch = new ConsulLeaderLatch(client, executor, leaderKey, "leader-address", listener, waitTime);
+		ConsulLeaderRetriever leaderResolver = new ConsulLeaderRetriever(client, executor, leaderKey, retrievalListener, 1);
+
+		leaderResolver.start();
 		latch.start();
 
 		Thread.sleep(1000 * waitTime);
-		verify(listener).onError(any(Exception.class));
+		verify(retrievalListener).handleError(any(Exception.class));
 
 		latch.stop();
 	}
