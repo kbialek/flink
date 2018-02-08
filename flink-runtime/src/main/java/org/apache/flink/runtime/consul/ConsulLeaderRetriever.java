@@ -22,7 +22,6 @@ import com.ecwid.consul.v1.ConsulClient;
 import com.ecwid.consul.v1.QueryParams;
 import com.ecwid.consul.v1.Response;
 import com.ecwid.consul.v1.kv.model.GetBinaryValue;
-import com.ecwid.consul.v1.session.model.NewSession;
 import org.apache.flink.runtime.leaderretrieval.LeaderRetrievalListener;
 import org.apache.flink.util.Preconditions;
 import org.slf4j.Logger;
@@ -39,11 +38,6 @@ public final class ConsulLeaderRetriever {
 	private final Executor executor;
 
 	private final String leaderKey;
-
-	/**
-	 * SessionID used for communication with Consul
-	 */
-	private String consulSessionId;
 
 	private long leaderKeyIndex;
 
@@ -87,7 +81,6 @@ public final class ConsulLeaderRetriever {
 	private void watch() {
 		while (runnable) {
 			try {
-				createOrRenewConsulSession();
 				GetBinaryValue value = readLeaderKey();
 				String leaderSessionId = null;
 				if (value != null) {
@@ -107,38 +100,6 @@ public final class ConsulLeaderRetriever {
 
 				}
 			}
-		}
-		destroyConsulSession();
-	}
-
-	private void createOrRenewConsulSession() {
-		if (consulSessionId == null) {
-			createConsulSession();
-		} else {
-			renewConsulSession();
-		}
-	}
-
-	private void createConsulSession() {
-		NewSession newSession = new NewSession();
-		newSession.setName("flink");
-		newSession.setTtl(String.format("%ds", Math.max(10, waitTime + 5)));
-		consulSessionId = client.sessionCreate(newSession, QueryParams.DEFAULT).getValue();
-	}
-
-	private void renewConsulSession() {
-		try {
-			client.renewSession(consulSessionId, QueryParams.DEFAULT);
-		} catch (Exception e) {
-			LOG.error("Consul session renew failed", e);
-		}
-	}
-
-	private void destroyConsulSession() {
-		try {
-			client.sessionDestroy(consulSessionId, QueryParams.DEFAULT);
-		} catch (Exception e) {
-			LOG.error("Consul session destroy failed", e);
 		}
 	}
 

@@ -21,6 +21,7 @@ package org.apache.flink.runtime.leaderelection;
 import com.ecwid.consul.v1.ConsulClient;
 import org.apache.flink.runtime.consul.ConsulLeaderLatch;
 import org.apache.flink.runtime.consul.ConsulLeaderLatchListener;
+import org.apache.flink.runtime.consul.ConsulSessionHolder;
 import org.apache.flink.util.Preconditions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -58,6 +59,8 @@ public class ConsulLeaderElectionService implements LeaderElectionService {
 
 	private volatile UUID confirmedLeaderSessionID;
 
+	private final ConsulSessionHolder sessionHolder;
+
 	/**
 	 * The leader contender which applies for leadership
 	 */
@@ -79,16 +82,18 @@ public class ConsulLeaderElectionService implements LeaderElectionService {
 
 	/**
 	 * Creates a {@link ConsulLeaderElectionService} object.
-	 *
-	 * @param client     Client which is connected to the Consul quorum
+	 *  @param client     Client which is connected to the Consul quorum
 	 * @param leaderPath ZooKeeper node path for the node which stores the current leader information
+	 * @param sessionHolder
 	 */
 	public ConsulLeaderElectionService(ConsulClient client,
 									   Executor executor,
+									   ConsulSessionHolder sessionHolder,
 									   String leaderPath) {
 		this.client = Preconditions.checkNotNull(client, "Consul client");
 		this.leaderPath = Preconditions.checkNotNull(leaderPath, "leaderPath");
 		this.executor = Preconditions.checkNotNull(executor, "executor");
+		this.sessionHolder = Preconditions.checkNotNull(sessionHolder, "sessionHolder");
 
 		confirmedLeaderSessionID = null;
 		leaderContender = null;
@@ -115,7 +120,7 @@ public class ConsulLeaderElectionService implements LeaderElectionService {
 
 			leaderContender = contender;
 
-			leaderLatch = new ConsulLeaderLatch(client, executor, leaderPath,
+			leaderLatch = new ConsulLeaderLatch(client, executor, sessionHolder, leaderPath,
 				leaderContender.getAddress(), listener, 10);
 			leaderLatch.start();
 

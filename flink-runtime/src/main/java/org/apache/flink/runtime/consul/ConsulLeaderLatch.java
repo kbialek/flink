@@ -24,7 +24,6 @@ import com.ecwid.consul.v1.QueryParams;
 import com.ecwid.consul.v1.Response;
 import com.ecwid.consul.v1.kv.model.GetBinaryValue;
 import com.ecwid.consul.v1.kv.model.PutParams;
-import com.ecwid.consul.v1.session.model.NewSession;
 import org.apache.flink.util.Preconditions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -41,14 +40,11 @@ public final class ConsulLeaderLatch {
 
 	private final Executor executor;
 
+	private final ConsulSessionHolder sessionHolder;
+
 	private final String leaderKey;
 
 	private final String nodeAddress;
-
-	/**
-	 * SessionID used for communication with Consul
-	 */
-	private String consulSessionId;
 
 	/**
 	 * SessionID
@@ -74,12 +70,14 @@ public final class ConsulLeaderLatch {
 	 */
 	public ConsulLeaderLatch(ConsulClient client,
 							 Executor executor,
+							 ConsulSessionHolder sessionHolder,
 							 String leaderKey,
 							 String nodeAddress,
 							 ConsulLeaderLatchListener listener,
 							 int waitTime) {
 		this.client = Preconditions.checkNotNull(client, "client");
 		this.executor = Preconditions.checkNotNull(executor, "executor");
+		this.sessionHolder = Preconditions.checkNotNull(sessionHolder, "sessionHolder");
 		this.leaderKey = Preconditions.checkNotNull(leaderKey, "leaderKey");
 		this.nodeAddress = Preconditions.checkNotNull(nodeAddress, "nodeAddress");
 		this.listener = Preconditions.checkNotNull(listener, "listener");
@@ -99,9 +97,9 @@ public final class ConsulLeaderLatch {
 	}
 
 	private void watch() {
+		flinkSessionId = UUID.randomUUID();
 		while (runnable) {
 			try {
-				createOrRenewConsulSession();
 				GetBinaryValue value = readLeaderKey();
 				String leaderSessionId = null;
 				if (value != null) {
@@ -130,43 +128,11 @@ public final class ConsulLeaderLatch {
 				}
 			}
 		}
-		destroyConsulSession();
+		releaseLeaderKey();
 	}
 
 	public boolean hasLeadership() {
 		return hasLeadership;
-	}
-
-	private void createOrRenewConsulSession() {
-		if (consulSessionId == null) {
-			createConsulSession();
-		} else {
-			renewConsulSession();
-		}
-	}
-
-	private void createConsulSession() {
-		NewSession newSession = new NewSession();
-		newSession.setName("flink");
-		newSession.setTtl(String.format("%ds", Math.max(10, waitTime + 5)));
-		consulSessionId = client.sessionCreate(newSession, QueryParams.DEFAULT).getValue();
-		flinkSessionId = UUID.randomUUID();
-	}
-
-	private void renewConsulSession() {
-		try {
-			client.renewSession(consulSessionId, QueryParams.DEFAULT);
-		} catch (Exception e) {
-			LOG.error("Consul session renew failed", e);
-		}
-	}
-
-	private void destroyConsulSession() {
-		try {
-			client.sessionDestroy(consulSessionId, QueryParams.DEFAULT);
-		} catch (Exception e) {
-			LOG.error("Consul session destroy failed", e);
-		}
 	}
 
 	private GetBinaryValue readLeaderKey() {
@@ -180,10 +146,20 @@ public final class ConsulLeaderLatch {
 
 	private Boolean writeLeaderKey() {
 		PutParams putParams = new PutParams();
-		putParams.setAcquireSession(consulSessionId);
+		putParams.setAcquireSession(sessionHolder.getSessionId());
 		try {
 			ConsulLeaderData data = new ConsulLeaderData(nodeAddress, flinkSessionId);
 			return client.setKVBinaryValue(leaderKey, data.toBytes(), putParams).getValue();
+		} catch (OperationException ex) {
+			return false;
+		}
+	}
+
+	private Boolean releaseLeaderKey() {
+		PutParams putParams = new PutParams();
+		putParams.setReleaseSession(sessionHolder.getSessionId());
+		try {
+			return client.setKVBinaryValue(leaderKey, new byte[0], putParams).getValue();
 		} catch (OperationException ex) {
 			return false;
 		}

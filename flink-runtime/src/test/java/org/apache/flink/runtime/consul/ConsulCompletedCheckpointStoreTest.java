@@ -16,8 +16,6 @@ import org.junit.Before;
 import org.junit.Test;
 
 import java.util.List;
-import java.util.concurrent.Executor;
-import java.util.concurrent.Executors;
 
 import static org.junit.Assert.*;
 
@@ -25,7 +23,6 @@ public class ConsulCompletedCheckpointStoreTest {
 
 	private ConsulProcess consul;
 	private ConsulClient client;
-	private Executor executor = Executors.newFixedThreadPool(4);
 
 	@Before
 	public void setup() {

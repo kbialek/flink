@@ -16,7 +16,7 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.mockito.Mockito.*;
 
-public class ConsulSessionExecutorTest {
+public class ConsulSessionActivatorTest {
 
 	private ConsulProcess consul;
 	private ConsulClient client;
@@ -27,7 +27,7 @@ public class ConsulSessionExecutorTest {
 			.withConsulVersion("1.0.3")
 			.build()
 			.start();
-		client = new ConsulClient(String.format("localhost:%d", consul.getHttpPort()));
+		client = new ConsulClient("localhost", consul.getHttpPort());
 	}
 
 	@After
@@ -39,28 +39,23 @@ public class ConsulSessionExecutorTest {
 	public void testSessionLifecycle() throws Exception {
 		Executor executor = Executors.newFixedThreadPool(2);
 		ConsulClient spiedClient = spy(client);
-		ConsulSessionExecutor cse = new ConsulSessionExecutor(spiedClient, executor, 10);
-		cse.start();
+		ConsulSessionActivator cse = new ConsulSessionActivator(spiedClient, executor, 10);
+		ConsulSessionHolder holder = cse.start();
+		Thread.sleep(1000);
+
 		verify(spiedClient).sessionCreate(any(NewSession.class), any(QueryParams.class));
 
-		final String[] sessionId = new String[1];
+		assertNotNull(client.getSessionInfo(holder.getSessionId(), QueryParams.DEFAULT).getValue());
+		Thread.sleep(11000);
 
-		cse.execute((c, sid) -> {
-			sessionId[0] = sid;
-			assertNotNull(c);
-			assertNotNull(sid);
-			assertNotNull(c.getSessionInfo(sid, QueryParams.DEFAULT).getValue());
-			try {
-				Thread.sleep(11000);
-			} catch (InterruptedException ignored) {
+		verify(spiedClient).renewSession(anyString(), any(QueryParams.class));
+		assertNotNull(client.getSessionInfo(holder.getSessionId(), QueryParams.DEFAULT).getValue());
 
-			}
-			verify(spiedClient).renewSession(anyString(), any(QueryParams.class));
-			assertNotNull(c.getSessionInfo(sid, QueryParams.DEFAULT).getValue());
-		});
-		Thread.sleep(20000);
+		cse.stop();
+
+		Thread.sleep(11000);
 		verify(spiedClient).sessionDestroy(anyString(), any(QueryParams.class));
-		assertNull(client.getSessionInfo(sessionId[0], QueryParams.DEFAULT).getValue());
+		assertNull(client.getSessionInfo(holder.getSessionId(), QueryParams.DEFAULT).getValue());
 	}
 
 }

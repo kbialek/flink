@@ -25,6 +25,7 @@ import org.apache.flink.runtime.blob.BlobStore;
 import org.apache.flink.runtime.blob.BlobStoreService;
 import org.apache.flink.runtime.checkpoint.CheckpointRecoveryFactory;
 import org.apache.flink.runtime.checkpoint.StandaloneCheckpointRecoveryFactory;
+import org.apache.flink.runtime.consul.ConsulSessionActivator;
 import org.apache.flink.runtime.highavailability.HighAvailabilityServices;
 import org.apache.flink.runtime.highavailability.RunningJobsRegistry;
 import org.apache.flink.runtime.highavailability.nonha.standalone.StandaloneRunningJobsRegistry;
@@ -77,6 +78,8 @@ public class ConsulHaServices implements HighAvailabilityServices {
 //	private final BlobStoreService blobStoreService;
 	private final BlobStoreService blobStore;
 
+	private final ConsulSessionActivator consulSessionActivator;
+
 	public ConsulHaServices(ConsulClient client,
 							Executor executor,
 							Configuration configuration,
@@ -88,6 +91,9 @@ public class ConsulHaServices implements HighAvailabilityServices {
 		this.runningJobsRegistry = new StandaloneRunningJobsRegistry();
 
 		this.blobStore = checkNotNull(blobStoreService);
+
+		this.consulSessionActivator = new ConsulSessionActivator(client, executor, 10);
+		this.consulSessionActivator.start();
 	}
 
 
@@ -105,7 +111,7 @@ public class ConsulHaServices implements HighAvailabilityServices {
 	@Override
 	public LeaderElectionService getJobManagerLeaderElectionService(JobID jobID) {
 		String leaderPath = getLeaderPath() + getPathForJobManager(jobID);
-		return new ConsulLeaderElectionService(client, executor, leaderPath);
+		return new ConsulLeaderElectionService(client, executor, consulSessionActivator.getHolder(), leaderPath);
 	}
 
 
@@ -116,7 +122,8 @@ public class ConsulHaServices implements HighAvailabilityServices {
 
 	@Override
 	public LeaderElectionService getResourceManagerLeaderElectionService() {
-		return new ConsulLeaderElectionService(client, executor, getLeaderPath() + RESOURCE_MANAGER_LEADER_PATH);
+		return new ConsulLeaderElectionService(client, executor, consulSessionActivator.getHolder(),
+			getLeaderPath() + RESOURCE_MANAGER_LEADER_PATH);
 	}
 
 	@Override
@@ -126,11 +133,13 @@ public class ConsulHaServices implements HighAvailabilityServices {
 
 	@Override
 	public LeaderElectionService getDispatcherLeaderElectionService() {
-		return new ConsulLeaderElectionService(client, executor, getLeaderPath() + DISPATCHER_LEADER_PATH);
+		return new ConsulLeaderElectionService(client, executor, consulSessionActivator.getHolder(),
+			getLeaderPath() + DISPATCHER_LEADER_PATH);
 	}
 
 	@Override
 	public CheckpointRecoveryFactory getCheckpointRecoveryFactory() {
+
 		return new StandaloneCheckpointRecoveryFactory();
 	}
 
@@ -151,12 +160,12 @@ public class ConsulHaServices implements HighAvailabilityServices {
 
 	@Override
 	public void close() throws Exception {
-
+		consulSessionActivator.stop();
 	}
 
 	@Override
 	public void closeAndCleanupAllData() throws Exception {
-
+		close();
 	}
 
 	private String getLeaderPath() {
@@ -167,4 +176,5 @@ public class ConsulHaServices implements HighAvailabilityServices {
 	private static String getPathForJobManager(final JobID jobID) {
 		return "/" + jobID + JOB_MANAGER_LEADER_PATH;
 	}
+
 }
