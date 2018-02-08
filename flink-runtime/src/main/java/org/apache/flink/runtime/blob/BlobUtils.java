@@ -26,17 +26,10 @@ import org.apache.flink.core.fs.FileSystem;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.runtime.jobmanager.HighAvailabilityMode;
 import org.apache.flink.util.StringUtils;
-
 import org.slf4j.Logger;
 
 import javax.annotation.Nullable;
-
-import java.io.Closeable;
-import java.io.EOFException;
-import java.io.File;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
+import java.io.*;
 import java.net.Socket;
 import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
@@ -89,6 +82,8 @@ public class BlobUtils {
 		if (highAvailabilityMode == HighAvailabilityMode.NONE) {
 			return new VoidBlobStore();
 		} else if (highAvailabilityMode == HighAvailabilityMode.ZOOKEEPER) {
+			return createFileSystemBlobStore(config);
+		} else if (highAvailabilityMode == HighAvailabilityMode.CONSUL) {
 			return createFileSystemBlobStore(config);
 		} else {
 			throw new IllegalConfigurationException("Unexpected high availability mode '" + highAvailabilityMode + "'.");

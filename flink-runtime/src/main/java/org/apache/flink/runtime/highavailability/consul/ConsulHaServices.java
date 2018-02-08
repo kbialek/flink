@@ -23,7 +23,6 @@ import org.apache.flink.api.common.JobID;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.runtime.blob.BlobStore;
 import org.apache.flink.runtime.blob.BlobStoreService;
-import org.apache.flink.runtime.blob.VoidBlobStore;
 import org.apache.flink.runtime.checkpoint.CheckpointRecoveryFactory;
 import org.apache.flink.runtime.checkpoint.StandaloneCheckpointRecoveryFactory;
 import org.apache.flink.runtime.highavailability.HighAvailabilityServices;
@@ -76,7 +75,7 @@ public class ConsulHaServices implements HighAvailabilityServices {
 	 * Store for arbitrary blobs
 	 */
 //	private final BlobStoreService blobStoreService;
-	private final BlobStore blobStore = new VoidBlobStore();
+	private final BlobStoreService blobStore;
 
 	public ConsulHaServices(ConsulClient client,
 							Executor executor,
@@ -88,7 +87,7 @@ public class ConsulHaServices implements HighAvailabilityServices {
 
 		this.runningJobsRegistry = new StandaloneRunningJobsRegistry();
 
-//		this.blobStoreService = checkNotNull(blobStoreService);
+		this.blobStore = checkNotNull(blobStoreService);
 	}
 
 
