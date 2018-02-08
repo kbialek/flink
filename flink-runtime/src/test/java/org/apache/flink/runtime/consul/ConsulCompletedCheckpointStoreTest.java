@@ -42,13 +42,25 @@ public class ConsulCompletedCheckpointStoreTest {
 	}
 
 	@Test
+	public void testConfiguration() throws Exception {
+		JobID jobID = JobID.generate();
+		ConsulCompletedCheckpointStore store = new ConsulCompletedCheckpointStore(client, jobID, 10);
+		assertEquals(10, store.getMaxNumberOfRetainedCheckpoints());
+		assertTrue(store.requiresExternalizedCheckpoints());
+	}
+
+	@Test
 	public void testAddCheckpoint() throws Exception {
 		JobID jobID = JobID.generate();
 		ConsulCompletedCheckpointStore store = new ConsulCompletedCheckpointStore(client, jobID, 1);
 
 		CompletedCheckpoint checkpoint = createCheckpoint(jobID, 1l);
 
+		assertEquals(0, store.getNumberOfRetainedCheckpoints());
+
 		store.addCheckpoint(checkpoint);
+
+		assertEquals(1, store.getNumberOfRetainedCheckpoints());
 
 		CompletedCheckpoint latestCheckpoint = store.getLatestCheckpoint();
 		assertNotNull(latestCheckpoint);

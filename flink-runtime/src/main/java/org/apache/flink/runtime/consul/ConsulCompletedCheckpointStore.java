@@ -77,17 +77,17 @@ public final class ConsulCompletedCheckpointStore implements CompletedCheckpoint
 
 	@Override
 	public int getNumberOfRetainedCheckpoints() {
-		return 0;
+		return completedCheckpoints.size();
 	}
 
 	@Override
 	public int getMaxNumberOfRetainedCheckpoints() {
-		return 0;
+		return maxCheckpoints;
 	}
 
 	@Override
 	public boolean requiresExternalizedCheckpoints() {
-		return false;
+		return true;
 	}
 
 	private String jobPath() {
