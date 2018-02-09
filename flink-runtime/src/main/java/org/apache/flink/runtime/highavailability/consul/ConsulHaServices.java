@@ -27,9 +27,9 @@ import org.apache.flink.runtime.checkpoint.CheckpointRecoveryFactory;
 import org.apache.flink.runtime.consul.ConsulCheckpointRecoveryFactory;
 import org.apache.flink.runtime.consul.ConsulRunningJobsRegistry;
 import org.apache.flink.runtime.consul.ConsulSessionActivator;
+import org.apache.flink.runtime.consul.ConsulSubmittedJobGraphStore;
 import org.apache.flink.runtime.highavailability.HighAvailabilityServices;
 import org.apache.flink.runtime.highavailability.RunningJobsRegistry;
-import org.apache.flink.runtime.jobmanager.StandaloneSubmittedJobGraphStore;
 import org.apache.flink.runtime.jobmanager.SubmittedJobGraphStore;
 import org.apache.flink.runtime.leaderelection.ConsulLeaderElectionService;
 import org.apache.flink.runtime.leaderelection.LeaderElectionService;
@@ -145,7 +145,7 @@ public class ConsulHaServices implements HighAvailabilityServices {
 
 	@Override
 	public SubmittedJobGraphStore getSubmittedJobGraphStore() throws Exception {
-		return new StandaloneSubmittedJobGraphStore();
+		return new ConsulSubmittedJobGraphStore(client);
 	}
 
 	@Override
