@@ -22,6 +22,6 @@ public final class ConsulCheckpointRecoveryFactory implements CheckpointRecovery
 
 	@Override
 	public CheckpointIDCounter createCheckpointIDCounter(JobID jobId) throws Exception {
-		return null;
+		return new ConsulCheckpointIDCounter(client, jobId);
 	}
 }

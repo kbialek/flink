@@ -24,7 +24,7 @@ import org.apache.flink.configuration.Configuration;
 import org.apache.flink.runtime.blob.BlobStore;
 import org.apache.flink.runtime.blob.BlobStoreService;
 import org.apache.flink.runtime.checkpoint.CheckpointRecoveryFactory;
-import org.apache.flink.runtime.checkpoint.StandaloneCheckpointRecoveryFactory;
+import org.apache.flink.runtime.consul.ConsulCheckpointRecoveryFactory;
 import org.apache.flink.runtime.consul.ConsulSessionActivator;
 import org.apache.flink.runtime.highavailability.HighAvailabilityServices;
 import org.apache.flink.runtime.highavailability.RunningJobsRegistry;
@@ -139,8 +139,7 @@ public class ConsulHaServices implements HighAvailabilityServices {
 
 	@Override
 	public CheckpointRecoveryFactory getCheckpointRecoveryFactory() {
-
-		return new StandaloneCheckpointRecoveryFactory();
+		return new ConsulCheckpointRecoveryFactory(client);
 	}
 
 	@Override

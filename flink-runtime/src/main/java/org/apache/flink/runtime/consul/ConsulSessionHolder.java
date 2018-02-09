@@ -11,4 +11,8 @@ public final class ConsulSessionHolder {
 	void setSessionId(String sessionId) {
 		this.sessionId = sessionId;
 	}
+
+	public boolean compareSessionId(String sessionId) {
+		return (this.sessionId == null && sessionId == null) || (this.sessionId.equals(sessionId));
+	}
 }
