@@ -38,6 +38,7 @@ import org.apache.flink.runtime.leaderretrieval.LeaderRetrievalService;
 
 import java.io.IOException;
 import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
@@ -85,12 +86,12 @@ public class ConsulHaServices implements HighAvailabilityServices {
 							Configuration configuration,
 							BlobStoreService blobStoreService) {
 		this.client = checkNotNull(client);
-		this.executor = checkNotNull(executor);
+		this.executor = Executors.newCachedThreadPool();
 		this.configuration = checkNotNull(configuration);
 
 		this.blobStore = checkNotNull(blobStoreService);
 
-		this.consulSessionActivator = new ConsulSessionActivator(client, executor, 10);
+		this.consulSessionActivator = new ConsulSessionActivator(client, this.executor, 10);
 		this.consulSessionActivator.start();
 
 		this.runningJobsRegistry = new ConsulRunningJobsRegistry(client, consulSessionActivator.getHolder());
@@ -139,7 +140,7 @@ public class ConsulHaServices implements HighAvailabilityServices {
 
 	@Override
 	public CheckpointRecoveryFactory getCheckpointRecoveryFactory() {
-		return new ConsulCheckpointRecoveryFactory(client);
+		return new ConsulCheckpointRecoveryFactory(client, configuration);
 	}
 
 	@Override

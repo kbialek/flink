@@ -9,12 +9,17 @@ import org.apache.flink.runtime.checkpoint.CompletedCheckpoint;
 import org.apache.flink.runtime.jobgraph.JobStatus;
 import org.apache.flink.runtime.state.StreamStateHandle;
 import org.apache.flink.runtime.state.memory.ByteStreamStateHandle;
+import org.apache.flink.runtime.zookeeper.RetrievableStateStorageHelper;
+import org.apache.flink.runtime.zookeeper.filesystem.FileSystemStateStorageHelper;
 import org.apache.flink.shaded.guava18.com.google.common.collect.Lists;
 import org.apache.flink.shaded.guava18.com.google.common.collect.Maps;
+import org.apache.flink.shaded.guava18.com.google.common.io.Files;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
+import java.io.File;
+import java.io.IOException;
 import java.util.List;
 
 import static org.junit.Assert.*;
@@ -23,14 +28,18 @@ public class ConsulCompletedCheckpointStoreTest {
 
 	private ConsulProcess consul;
 	private ConsulClient client;
+	private File tempDir;
+	private RetrievableStateStorageHelper<CompletedCheckpoint> storage;
 
 	@Before
-	public void setup() {
+	public void setup() throws IOException {
 		consul = ConsulStarterBuilder.consulStarter()
 			.withConsulVersion("1.0.3")
 			.build()
 			.start();
 		client = new ConsulClient(String.format("localhost:%d", consul.getHttpPort()));
+		tempDir = Files.createTempDir();
+		storage = new FileSystemStateStorageHelper<CompletedCheckpoint>(tempDir.getPath(), "cp");
 	}
 
 	@After
@@ -41,7 +50,7 @@ public class ConsulCompletedCheckpointStoreTest {
 	@Test
 	public void testConfiguration() throws Exception {
 		JobID jobID = JobID.generate();
-		ConsulCompletedCheckpointStore store = new ConsulCompletedCheckpointStore(client, jobID, 10);
+		ConsulCompletedCheckpointStore store = new ConsulCompletedCheckpointStore(client, jobID, 10, storage);
 		assertEquals(10, store.getMaxNumberOfRetainedCheckpoints());
 		assertTrue(store.requiresExternalizedCheckpoints());
 	}
@@ -49,7 +58,7 @@ public class ConsulCompletedCheckpointStoreTest {
 	@Test
 	public void testAddCheckpoint() throws Exception {
 		JobID jobID = JobID.generate();
-		ConsulCompletedCheckpointStore store = new ConsulCompletedCheckpointStore(client, jobID, 1);
+		ConsulCompletedCheckpointStore store = new ConsulCompletedCheckpointStore(client, jobID, 1, storage);
 
 		CompletedCheckpoint checkpoint = createCheckpoint(jobID, 1l);
 
@@ -68,7 +77,7 @@ public class ConsulCompletedCheckpointStoreTest {
 	@Test
 	public void testAllCheckpoints() throws Exception {
 		JobID jobID = JobID.generate();
-		ConsulCompletedCheckpointStore store = new ConsulCompletedCheckpointStore(client, jobID, 3);
+		ConsulCompletedCheckpointStore store = new ConsulCompletedCheckpointStore(client, jobID, 3, storage);
 
 		CompletedCheckpoint checkpoint1 = createCheckpoint(jobID, 1l);
 		CompletedCheckpoint checkpoint2 = createCheckpoint(jobID, 2l);
@@ -88,12 +97,12 @@ public class ConsulCompletedCheckpointStoreTest {
 	@Test
 	public void testRecovery() throws Exception {
 		JobID jobID = JobID.generate();
-		ConsulCompletedCheckpointStore store = new ConsulCompletedCheckpointStore(client, jobID, 1);
+		ConsulCompletedCheckpointStore store = new ConsulCompletedCheckpointStore(client, jobID, 1, storage);
 
 		CompletedCheckpoint checkpoint = createCheckpoint(jobID, 1l);
 		store.addCheckpoint(checkpoint);
 
-		ConsulCompletedCheckpointStore newStore = new ConsulCompletedCheckpointStore(client, jobID, 1);
+		ConsulCompletedCheckpointStore newStore = new ConsulCompletedCheckpointStore(client, jobID, 1, storage);
 		newStore.recover();
 
 		CompletedCheckpoint latestCheckpoint = newStore.getLatestCheckpoint();
@@ -105,13 +114,13 @@ public class ConsulCompletedCheckpointStoreTest {
 	@Test
 	public void testShutdown() throws Exception {
 		JobID jobID = JobID.generate();
-		ConsulCompletedCheckpointStore store = new ConsulCompletedCheckpointStore(client, jobID, 1);
+		ConsulCompletedCheckpointStore store = new ConsulCompletedCheckpointStore(client, jobID, 1, storage);
 
 		CompletedCheckpoint checkpoint = createCheckpoint(jobID, 1l);
 		store.addCheckpoint(checkpoint);
 		store.shutdown(JobStatus.FINISHED);
 
-		ConsulCompletedCheckpointStore newStore = new ConsulCompletedCheckpointStore(client, jobID, 1);
+		ConsulCompletedCheckpointStore newStore = new ConsulCompletedCheckpointStore(client, jobID, 1, storage);
 		newStore.recover();
 
 		assertEquals(0, newStore.getAllCheckpoints().size());
@@ -120,7 +129,7 @@ public class ConsulCompletedCheckpointStoreTest {
 	@Test
 	public void testRemoveSubsumedCheckpoint() throws Exception {
 		JobID jobID = JobID.generate();
-		ConsulCompletedCheckpointStore store = new ConsulCompletedCheckpointStore(client, jobID, 1);
+		ConsulCompletedCheckpointStore store = new ConsulCompletedCheckpointStore(client, jobID, 1, storage);
 
 		CompletedCheckpoint checkpoint1 = createCheckpoint(jobID, 1l);
 		CompletedCheckpoint checkpoint2 = createCheckpoint(jobID, 2l);
