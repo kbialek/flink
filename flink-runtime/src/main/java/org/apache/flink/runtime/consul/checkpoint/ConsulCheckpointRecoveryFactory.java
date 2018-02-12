@@ -7,6 +7,7 @@ import org.apache.flink.runtime.checkpoint.CheckpointIDCounter;
 import org.apache.flink.runtime.checkpoint.CheckpointRecoveryFactory;
 import org.apache.flink.runtime.checkpoint.CompletedCheckpoint;
 import org.apache.flink.runtime.checkpoint.CompletedCheckpointStore;
+import org.apache.flink.runtime.consul.configuration.ConsulHighAvailabilityOptions;
 import org.apache.flink.runtime.util.ZooKeeperUtils;
 import org.apache.flink.runtime.zookeeper.RetrievableStateStorageHelper;
 import org.apache.flink.util.Preconditions;
@@ -26,11 +27,22 @@ public final class ConsulCheckpointRecoveryFactory implements CheckpointRecovery
 		RetrievableStateStorageHelper<CompletedCheckpoint> stateStorage =
 			ZooKeeperUtils.createFileSystemStateStorage(configuration, "completedCheckpoint");
 
-		return new ConsulCompletedCheckpointStore(client, "flink/checkpoints/", jobId, maxNumberOfCheckpointsToRetain, stateStorage);
+		return new ConsulCompletedCheckpointStore(client, checkpointsPath(), jobId, maxNumberOfCheckpointsToRetain, stateStorage);
 	}
 
 	@Override
 	public CheckpointIDCounter createCheckpointIDCounter(JobID jobId) throws Exception {
-		return new ConsulCheckpointIDCounter(client, "flink/checkpoint-counter/", jobId);
+		return new ConsulCheckpointIDCounter(client, checkpointCountersPath(), jobId);
 	}
+
+	private String checkpointCountersPath() {
+		return configuration.getString(ConsulHighAvailabilityOptions.HA_CONSUL_ROOT)
+			+ configuration.getString(ConsulHighAvailabilityOptions.HA_CONSUL_CHECKPOINT_COUNTER_PATH);
+	}
+
+	private String checkpointsPath() {
+		return configuration.getString(ConsulHighAvailabilityOptions.HA_CONSUL_ROOT)
+			+ configuration.getString(ConsulHighAvailabilityOptions.HA_CONSUL_CHECKPOINTS_PATH);
+	}
+
 }

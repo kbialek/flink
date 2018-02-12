@@ -26,6 +26,7 @@ import org.apache.flink.runtime.blob.BlobStoreService;
 import org.apache.flink.runtime.checkpoint.CheckpointRecoveryFactory;
 import org.apache.flink.runtime.consul.ConsulSessionActivator;
 import org.apache.flink.runtime.consul.checkpoint.ConsulCheckpointRecoveryFactory;
+import org.apache.flink.runtime.consul.configuration.ConsulHighAvailabilityOptions;
 import org.apache.flink.runtime.consul.jobgraph.ConsulSubmittedJobGraphStore;
 import org.apache.flink.runtime.consul.jobregistry.ConsulRunningJobsRegistry;
 import org.apache.flink.runtime.consul.leader.ConsulLeaderElectionService;
@@ -94,13 +95,13 @@ public class ConsulHaServices implements HighAvailabilityServices {
 		this.consulSessionActivator = new ConsulSessionActivator(client, this.executor, 10);
 		this.consulSessionActivator.start();
 
-		this.runningJobsRegistry = new ConsulRunningJobsRegistry(client, consulSessionActivator.getHolder(), "flink/job-status/");
+		this.runningJobsRegistry = new ConsulRunningJobsRegistry(client, consulSessionActivator.getHolder(), jobStatusPath());
 	}
 
 
 	@Override
 	public LeaderRetrievalService getJobManagerLeaderRetriever(JobID jobID) {
-		String leaderPath = getLeaderPath() + getPathForJobManager(jobID);
+		String leaderPath = getJobManagerLeaderPath(jobID);
 		return new ConsulLeaderRetrievalService(client, executor, leaderPath);
 	}
 
@@ -111,7 +112,7 @@ public class ConsulHaServices implements HighAvailabilityServices {
 
 	@Override
 	public LeaderElectionService getJobManagerLeaderElectionService(JobID jobID) {
-		String leaderPath = getLeaderPath() + getPathForJobManager(jobID);
+		String leaderPath = getJobManagerLeaderPath(jobID);
 		return new ConsulLeaderElectionService(client, executor, consulSessionActivator.getHolder(), leaderPath);
 	}
 
@@ -145,7 +146,7 @@ public class ConsulHaServices implements HighAvailabilityServices {
 
 	@Override
 	public SubmittedJobGraphStore getSubmittedJobGraphStore() throws Exception {
-		return new ConsulSubmittedJobGraphStore(client, "flink/jobgraphs/");
+		return new ConsulSubmittedJobGraphStore(client, jobGraphsPath());
 	}
 
 	@Override
@@ -169,12 +170,21 @@ public class ConsulHaServices implements HighAvailabilityServices {
 	}
 
 	private String getLeaderPath() {
-//		return configuration.getString(HighAvailabilityOptions.HA_ZOOKEEPER_LEADER_PATH);
-		return "flink/leader";
+		return configuration.getString(ConsulHighAvailabilityOptions.HA_CONSUL_ROOT)
+			+ configuration.getString(ConsulHighAvailabilityOptions.HA_CONSUL_LEADER_PATH);
 	}
 
-	private static String getPathForJobManager(final JobID jobID) {
-		return "/" + jobID + JOB_MANAGER_LEADER_PATH;
+	private String getJobManagerLeaderPath(final JobID jobID) {
+		return getLeaderPath() + jobID + JOB_MANAGER_LEADER_PATH;
 	}
 
+	private String jobStatusPath() {
+		return configuration.getString(ConsulHighAvailabilityOptions.HA_CONSUL_ROOT)
+			+ configuration.getString(ConsulHighAvailabilityOptions.HA_CONSUL_JOBSTATUS_PATH);
+	}
+
+	private String jobGraphsPath() {
+		return configuration.getString(ConsulHighAvailabilityOptions.HA_CONSUL_ROOT)
+			+ configuration.getString(ConsulHighAvailabilityOptions.HA_CONSUL_JOBGRAPHS_PATH);
+	}
 }
