@@ -1,4 +1,4 @@
-package org.apache.flink.runtime.consul;
+package org.apache.flink.runtime.consul.checkpoint;
 
 import com.ecwid.consul.v1.ConsulClient;
 import com.pszymczyk.consul.ConsulProcess;

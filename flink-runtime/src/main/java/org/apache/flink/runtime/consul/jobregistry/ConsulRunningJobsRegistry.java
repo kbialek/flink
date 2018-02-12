@@ -1,9 +1,10 @@
-package org.apache.flink.runtime.consul;
+package org.apache.flink.runtime.consul.jobregistry;
 
 import com.ecwid.consul.v1.ConsulClient;
 import com.ecwid.consul.v1.kv.model.GetValue;
 import com.ecwid.consul.v1.kv.model.PutParams;
 import org.apache.flink.api.common.JobID;
+import org.apache.flink.runtime.consul.ConsulSessionHolder;
 import org.apache.flink.runtime.highavailability.RunningJobsRegistry;
 import org.apache.flink.util.Preconditions;
 

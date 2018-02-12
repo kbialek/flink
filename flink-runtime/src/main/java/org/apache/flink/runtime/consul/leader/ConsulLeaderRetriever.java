@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package org.apache.flink.runtime.consul;
+package org.apache.flink.runtime.consul.leader;
 
 import com.ecwid.consul.v1.ConsulClient;
 import com.ecwid.consul.v1.QueryParams;
@@ -29,7 +29,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.concurrent.Executor;
 
-public final class ConsulLeaderRetriever {
+final class ConsulLeaderRetriever {
 
 	private static final Logger LOG = LoggerFactory.getLogger(ConsulLeaderRetriever.class);
 

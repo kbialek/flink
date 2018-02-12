@@ -16,12 +16,12 @@
  * limitations under the License.
  */
 
-package org.apache.flink.runtime.leaderelection;
+package org.apache.flink.runtime.consul.leader;
 
 import com.ecwid.consul.v1.ConsulClient;
-import org.apache.flink.runtime.consul.ConsulLeaderLatch;
-import org.apache.flink.runtime.consul.ConsulLeaderLatchListener;
 import org.apache.flink.runtime.consul.ConsulSessionHolder;
+import org.apache.flink.runtime.leaderelection.LeaderContender;
+import org.apache.flink.runtime.leaderelection.LeaderElectionService;
 import org.apache.flink.util.Preconditions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

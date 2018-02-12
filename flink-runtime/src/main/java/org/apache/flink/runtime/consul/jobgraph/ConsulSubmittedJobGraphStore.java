@@ -1,4 +1,4 @@
-package org.apache.flink.runtime.consul;
+package org.apache.flink.runtime.consul.jobgraph;
 
 import com.ecwid.consul.v1.ConsulClient;
 import com.ecwid.consul.v1.kv.model.GetBinaryValue;

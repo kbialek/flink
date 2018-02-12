@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package org.apache.flink.runtime.consul;
+package org.apache.flink.runtime.consul.leader;
 
 import java.util.UUID;
 

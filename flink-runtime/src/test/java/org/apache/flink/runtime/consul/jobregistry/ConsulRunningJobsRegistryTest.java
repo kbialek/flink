@@ -1,10 +1,11 @@
-package org.apache.flink.runtime.consul;
+package org.apache.flink.runtime.consul.jobregistry;
 
 import com.ecwid.consul.v1.ConsulClient;
 import com.pszymczyk.consul.ConsulProcess;
 import com.pszymczyk.consul.ConsulStarterBuilder;
 import com.pszymczyk.consul.LogLevel;
 import org.apache.flink.api.common.JobID;
+import org.apache.flink.runtime.consul.ConsulSessionActivator;
 import org.apache.flink.runtime.highavailability.RunningJobsRegistry;
 import org.junit.After;
 import org.junit.Before;

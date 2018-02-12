@@ -16,10 +16,11 @@
  * limitations under the License.
  */
 
-package org.apache.flink.runtime.leaderretrieval;
+package org.apache.flink.runtime.consul.leader;
 
 import com.ecwid.consul.v1.ConsulClient;
-import org.apache.flink.runtime.consul.ConsulLeaderRetriever;
+import org.apache.flink.runtime.leaderretrieval.LeaderRetrievalListener;
+import org.apache.flink.runtime.leaderretrieval.LeaderRetrievalService;
 import org.apache.flink.util.Preconditions;
 
 import java.util.concurrent.Executor;
