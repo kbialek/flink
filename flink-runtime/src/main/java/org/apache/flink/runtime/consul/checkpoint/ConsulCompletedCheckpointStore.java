@@ -9,8 +9,11 @@ import org.apache.flink.runtime.checkpoint.CompletedCheckpointStore;
 import org.apache.flink.runtime.jobgraph.JobStatus;
 import org.apache.flink.runtime.state.RetrievableStateHandle;
 import org.apache.flink.runtime.zookeeper.RetrievableStateStorageHelper;
+import org.apache.flink.util.FlinkException;
 import org.apache.flink.util.InstantiationUtil;
 import org.apache.flink.util.Preconditions;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.ArrayDeque;
@@ -19,6 +22,8 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 final class ConsulCompletedCheckpointStore implements CompletedCheckpointStore {
+
+	private static final Logger LOG = LoggerFactory.getLogger(ConsulCompletedCheckpointStore.class);
 
 	private final ConsulClient client;
 	private final String checkpointsPath;
@@ -66,22 +71,57 @@ final class ConsulCompletedCheckpointStore implements CompletedCheckpointStore {
 		List<String> checkpointPaths = client.getKVKeysOnly(jobPath()).getValue();
 		if (checkpointPaths != null) {
 			checkpointPaths.sort(Comparator.naturalOrder());
-			checkpointPaths.stream().map(path -> {
+			List<RetrievableStateHandle<CompletedCheckpoint>> stateHandles = readCheckpointStateHandlesFromConsul(checkpointPaths);
+
+			LOG.info("Trying to recover Job {} checkpoints from storage", jobID);
+
+			List<CompletedCheckpoint> prevCheckpoints;
+			List<CompletedCheckpoint> checkpoints = null;
+			int attempts = 10;
+			do {
+				prevCheckpoints = checkpoints;
 				try {
-					GetBinaryValue binaryValue = client.getKVBinaryValue(path).getValue();
-
-					RetrievableStateHandle<CompletedCheckpoint> retrievableStateHandle =
-						InstantiationUtil.deserializeObject(
-							binaryValue.getValue(),
-							Thread.currentThread().getContextClassLoader()
-						);
-
-					return retrievableStateHandle.retrieveState();
-				} catch (IOException | ClassNotFoundException e) {
-					throw new IllegalStateException(e);
+					checkpoints = readCheckpointsFromStorage(stateHandles);
+				} catch (IllegalStateException e) {
+					LOG.warn(String.format("Exception when reading Job %s checkpoints from storage", jobID.toString()), e.getCause());
 				}
-			}).collect(Collectors.toCollection(() -> completedCheckpoints));
+			} while (attempts-- > 0 && (
+				prevCheckpoints == null
+					|| checkpoints.size() != stateHandles.size()
+					|| !checkpoints.equals(prevCheckpoints)));
+
+			if (attempts > 0 && checkpoints != null) {
+				completedCheckpoints.clear();
+				completedCheckpoints.addAll(checkpoints);
+			} else {
+				throw new FlinkException(String.format("Failed to recover Job %s checkpoints", jobID.toString()));
+			}
 		}
+	}
+
+	private List<RetrievableStateHandle<CompletedCheckpoint>> readCheckpointStateHandlesFromConsul(List<String> checkpointPaths) {
+		return checkpointPaths.stream().map(path -> {
+			try {
+				GetBinaryValue binaryValue = client.getKVBinaryValue(path).getValue();
+
+				return InstantiationUtil.<RetrievableStateHandle<CompletedCheckpoint>>deserializeObject(
+					binaryValue.getValue(),
+					Thread.currentThread().getContextClassLoader()
+				);
+			} catch (IOException | ClassNotFoundException e) {
+				throw new IllegalStateException(e);
+			}
+		}).collect(Collectors.toList());
+	}
+
+	private List<CompletedCheckpoint> readCheckpointsFromStorage(List<RetrievableStateHandle<CompletedCheckpoint>> stateHandles) {
+		return stateHandles.stream().map(sh -> {
+			try {
+				return sh.retrieveState();
+			} catch (IOException | ClassNotFoundException e) {
+				throw new IllegalStateException(e);
+			}
+		}).collect(Collectors.toList());
 	}
 
 	@Override

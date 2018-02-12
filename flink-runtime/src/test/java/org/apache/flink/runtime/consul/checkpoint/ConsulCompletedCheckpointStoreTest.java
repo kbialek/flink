@@ -1,12 +1,15 @@
 package org.apache.flink.runtime.consul.checkpoint;
 
 import com.ecwid.consul.v1.ConsulClient;
+import com.ecwid.consul.v1.Response;
+import com.ecwid.consul.v1.kv.model.GetBinaryValue;
 import com.pszymczyk.consul.ConsulProcess;
 import com.pszymczyk.consul.ConsulStarterBuilder;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.runtime.checkpoint.CheckpointProperties;
 import org.apache.flink.runtime.checkpoint.CompletedCheckpoint;
 import org.apache.flink.runtime.jobgraph.JobStatus;
+import org.apache.flink.runtime.state.RetrievableStateHandle;
 import org.apache.flink.runtime.state.StreamStateHandle;
 import org.apache.flink.runtime.state.memory.ByteStreamStateHandle;
 import org.apache.flink.runtime.zookeeper.RetrievableStateStorageHelper;
@@ -14,15 +17,18 @@ import org.apache.flink.runtime.zookeeper.filesystem.FileSystemStateStorageHelpe
 import org.apache.flink.shaded.guava18.com.google.common.collect.Lists;
 import org.apache.flink.shaded.guava18.com.google.common.collect.Maps;
 import org.apache.flink.shaded.guava18.com.google.common.io.Files;
+import org.apache.flink.util.InstantiationUtil;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
-import java.io.File;
-import java.io.IOException;
+import java.io.*;
+import java.util.Iterator;
 import java.util.List;
 
 import static org.junit.Assert.*;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 public class ConsulCompletedCheckpointStoreTest {
 
@@ -113,6 +119,37 @@ public class ConsulCompletedCheckpointStoreTest {
 	}
 
 	@Test
+	public void testRecovery_retryAfterException() throws Exception {
+		JobID jobID = JobID.generate();
+
+		CompletedCheckpoint checkpoint = createCheckpoint(jobID, 1l);
+
+		ConsulClient consulClient = mock(ConsulClient.class);
+		when(consulClient.getKVKeysOnly(checkpointsPath + jobID.toString())).thenReturn(
+			new Response<>(Lists.newArrayList("cp1"), 0L, false, 0L)
+		);
+		when(consulClient.getKVBinaryValue("cp1")).thenAnswer(i -> {
+			GetBinaryValue binaryValue = new GetBinaryValue();
+			binaryValue.setValue(InstantiationUtil.serializeObject(new TestStateHandle(
+				Lists.newArrayList(
+					new IOException(),
+					checkpoint,
+					checkpoint
+				)
+			)));
+			return new Response<>(binaryValue, 0L, false, 0L);
+		});
+		ConsulCompletedCheckpointStore newStore = new ConsulCompletedCheckpointStore(consulClient, checkpointsPath, jobID, 1, storage);
+
+		newStore.recover();
+
+		CompletedCheckpoint latestCheckpoint = newStore.getLatestCheckpoint();
+		assertNotNull(latestCheckpoint);
+		assertEquals(checkpoint, latestCheckpoint);
+		assertNotSame(checkpoint, latestCheckpoint);
+	}
+
+	@Test
 	public void testShutdown() throws Exception {
 		JobID jobID = JobID.generate();
 		ConsulCompletedCheckpointStore store = new ConsulCompletedCheckpointStore(client, checkpointsPath, jobID, 1, storage);
@@ -155,4 +192,48 @@ public class ConsulCompletedCheckpointStoreTest {
 			Lists.newArrayList(), chkProps, handle, "");
 	}
 
+	static class TestStateHandle implements RetrievableStateHandle<CompletedCheckpoint>, Serializable {
+
+		private List<Object> behavior;
+		private transient Iterator<Object> iter;
+
+		public TestStateHandle(List<Object> behavior) {
+			this.behavior = behavior;
+			this.iter = behavior.iterator();
+		}
+
+		@Override
+		public CompletedCheckpoint retrieveState() throws IOException, ClassNotFoundException {
+			if (iter.hasNext()) {
+				Object next = iter.next();
+				if (next instanceof IOException) {
+					throw (IOException) next;
+				} else {
+					return (CompletedCheckpoint) next;
+				}
+			} else {
+				fail("Missing behavior");
+				return null;
+			}
+		}
+
+		@Override
+		public void discardState() throws Exception {
+
+		}
+
+		@Override
+		public long getStateSize() {
+			return 0;
+		}
+
+		private void writeObject(ObjectOutputStream oos) throws IOException {
+			oos.writeObject(behavior);
+		}
+
+		private void readObject(ObjectInputStream ois) throws IOException, ClassNotFoundException {
+			behavior = (List<Object>) ois.readObject();
+			iter = behavior.iterator();
+		}
+	}
 }
