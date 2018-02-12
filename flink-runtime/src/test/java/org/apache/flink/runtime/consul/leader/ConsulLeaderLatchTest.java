@@ -160,7 +160,7 @@ public class ConsulLeaderLatchTest {
 		latch.start();
 
 		Thread.sleep(1000 * waitTime);
-		verify(retrievalListener).handleError(any(Exception.class));
+		verify(retrievalListener, atLeastOnce()).handleError(any(Exception.class));
 
 		latch.stop();
 	}

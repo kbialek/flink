@@ -21,15 +21,18 @@ import java.util.stream.Collectors;
 final class ConsulCompletedCheckpointStore implements CompletedCheckpointStore {
 
 	private final ConsulClient client;
+	private final String checkpointsPath;
 	private JobID jobID;
 	private final int maxCheckpoints;
 	private final RetrievableStateStorageHelper<CompletedCheckpoint> storage;
 
 	private final ArrayDeque<CompletedCheckpoint> completedCheckpoints;
 
-	public ConsulCompletedCheckpointStore(ConsulClient client, JobID jobID, int maxCheckpoints,
+	public ConsulCompletedCheckpointStore(ConsulClient client, String checkpointsPath, JobID jobID, int maxCheckpoints,
 										  RetrievableStateStorageHelper<CompletedCheckpoint> storage) {
 		this.client = Preconditions.checkNotNull(client, "client");
+		this.checkpointsPath = Preconditions.checkNotNull(checkpointsPath, "checkpointsPath");
+		Preconditions.checkArgument(checkpointsPath.endsWith("/"), "checkpointsPath must end with /");
 		this.jobID = Preconditions.checkNotNull(jobID, "jobID");
 		this.storage = Preconditions.checkNotNull(storage, "storage");
 		Preconditions.checkState(maxCheckpoints > 0, "maxCheckpoints must be > 0");
@@ -102,7 +105,7 @@ final class ConsulCompletedCheckpointStore implements CompletedCheckpointStore {
 	}
 
 	private String jobPath() {
-		return "flink/checkpoints/" + jobID.toString();
+		return checkpointsPath + jobID.toString();
 	}
 
 	private void writeCheckpoint(CompletedCheckpoint checkpoint) throws Exception {

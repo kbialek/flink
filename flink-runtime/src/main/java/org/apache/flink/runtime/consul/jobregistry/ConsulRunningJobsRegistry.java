@@ -14,10 +14,13 @@ public final class ConsulRunningJobsRegistry implements RunningJobsRegistry {
 
 	private final ConsulClient client;
 	private final ConsulSessionHolder sessionHolder;
+	private final String jobRegistryPath;
 
-	public ConsulRunningJobsRegistry(ConsulClient client, ConsulSessionHolder sessionHolder) {
+	public ConsulRunningJobsRegistry(ConsulClient client, ConsulSessionHolder sessionHolder, String jobRegistryPath) {
 		this.client = Preconditions.checkNotNull(client, "client");
 		this.sessionHolder = Preconditions.checkNotNull(sessionHolder, "sessionHolder");
+		this.jobRegistryPath = Preconditions.checkNotNull(jobRegistryPath, "jobRegistryPath");
+		Preconditions.checkArgument(jobRegistryPath.endsWith("/"), "jobRegistryPath must end with /");
 	}
 
 	@Override
@@ -50,6 +53,6 @@ public final class ConsulRunningJobsRegistry implements RunningJobsRegistry {
 	}
 
 	private String path(JobID jobID) {
-		return "flink/job-status/" + jobID.toString();
+		return jobRegistryPath + jobID.toString();
 	}
 }

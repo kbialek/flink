@@ -26,11 +26,11 @@ public final class ConsulCheckpointRecoveryFactory implements CheckpointRecovery
 		RetrievableStateStorageHelper<CompletedCheckpoint> stateStorage =
 			ZooKeeperUtils.createFileSystemStateStorage(configuration, "completedCheckpoint");
 
-		return new ConsulCompletedCheckpointStore(client, jobId, maxNumberOfCheckpointsToRetain, stateStorage);
+		return new ConsulCompletedCheckpointStore(client, "flink/checkpoints/", jobId, maxNumberOfCheckpointsToRetain, stateStorage);
 	}
 
 	@Override
 	public CheckpointIDCounter createCheckpointIDCounter(JobID jobId) throws Exception {
-		return new ConsulCheckpointIDCounter(client, jobId);
+		return new ConsulCheckpointIDCounter(client, "flink/checkpoint-counter/", jobId);
 	}
 }

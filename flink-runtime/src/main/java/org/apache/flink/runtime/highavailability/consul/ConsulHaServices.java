@@ -94,7 +94,7 @@ public class ConsulHaServices implements HighAvailabilityServices {
 		this.consulSessionActivator = new ConsulSessionActivator(client, this.executor, 10);
 		this.consulSessionActivator.start();
 
-		this.runningJobsRegistry = new ConsulRunningJobsRegistry(client, consulSessionActivator.getHolder());
+		this.runningJobsRegistry = new ConsulRunningJobsRegistry(client, consulSessionActivator.getHolder(), "flink/job-status/");
 	}
 
 
@@ -145,7 +145,7 @@ public class ConsulHaServices implements HighAvailabilityServices {
 
 	@Override
 	public SubmittedJobGraphStore getSubmittedJobGraphStore() throws Exception {
-		return new ConsulSubmittedJobGraphStore(client);
+		return new ConsulSubmittedJobGraphStore(client, "flink/jobgraphs/");
 	}
 
 	@Override

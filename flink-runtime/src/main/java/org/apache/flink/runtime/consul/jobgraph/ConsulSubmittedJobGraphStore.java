@@ -16,12 +16,14 @@ import java.util.stream.Collectors;
 
 public final class ConsulSubmittedJobGraphStore implements SubmittedJobGraphStore {
 
-	private static final String FLINK_JOBGRAPHS_PATH = "flink/jobgraphs/";
 	private final ConsulClient client;
+	private final String jobgraphsPath;
 	private SubmittedJobGraphListener listener;
 
-	public ConsulSubmittedJobGraphStore(ConsulClient client) {
-		this.client = client;
+	public ConsulSubmittedJobGraphStore(ConsulClient client, String jobgraphsPath) {
+		this.client = Preconditions.checkNotNull(client, "client");
+		this.jobgraphsPath = Preconditions.checkNotNull(jobgraphsPath, "jobgraphsPath");
+		Preconditions.checkArgument(jobgraphsPath.endsWith("/"), "jobgraphsPath must end with /");
 	}
 
 	@Override
@@ -63,7 +65,7 @@ public final class ConsulSubmittedJobGraphStore implements SubmittedJobGraphStor
 
 	@Override
 	public Collection<JobID> getJobIds() throws Exception {
-		List<String> value = client.getKVKeysOnly(FLINK_JOBGRAPHS_PATH).getValue();
+		List<String> value = client.getKVKeysOnly(jobgraphsPath).getValue();
 		if (value != null) {
 			return value.stream()
 				.map(id -> id.split("/"))
@@ -74,6 +76,6 @@ public final class ConsulSubmittedJobGraphStore implements SubmittedJobGraphStor
 	}
 
 	private String path(JobID jobID) {
-		return FLINK_JOBGRAPHS_PATH + jobID.toString();
+		return jobgraphsPath + jobID.toString();
 	}
 }

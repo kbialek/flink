@@ -11,12 +11,15 @@ import org.apache.flink.util.Preconditions;
 final class ConsulCheckpointIDCounter implements CheckpointIDCounter {
 
 	private final ConsulClient client;
+	private final String countersPath;
 	private final JobID jobID;
 	private long index;
 
-	public ConsulCheckpointIDCounter(ConsulClient client, JobID jobID) {
+	public ConsulCheckpointIDCounter(ConsulClient client, String countersPath, JobID jobID) {
 		this.client = Preconditions.checkNotNull(client, "client");
+		this.countersPath = Preconditions.checkNotNull(countersPath, "countersPath");
 		this.jobID = Preconditions.checkNotNull(jobID, "jobID");
+		Preconditions.checkArgument(countersPath.endsWith("/"), "countersPath must end with /");
 	}
 
 	@Override
@@ -70,6 +73,6 @@ final class ConsulCheckpointIDCounter implements CheckpointIDCounter {
 	}
 
 	private String counterKey() {
-		return "flink/checkpoint-counter/" + jobID.toString();
+		return countersPath + jobID.toString();
 	}
 }

@@ -26,6 +26,7 @@ import static org.mockito.Mockito.verify;
 public class ConsulSubmittedJobGraphStoreTest {
 	private ConsulProcess consul;
 	private ConsulClient client;
+	private String jobgraphsPath = "test-jobgraphs/";
 
 	@Before
 	public void setup() {
@@ -44,8 +45,8 @@ public class ConsulSubmittedJobGraphStoreTest {
 
 	@Test
 	public void testPutAndRecoverJobGraph() throws Exception {
-		ConsulSubmittedJobGraphStore graphStore1 = new ConsulSubmittedJobGraphStore(client);
-		ConsulSubmittedJobGraphStore graphStore2 = new ConsulSubmittedJobGraphStore(client);
+		ConsulSubmittedJobGraphStore graphStore1 = new ConsulSubmittedJobGraphStore(client, jobgraphsPath);
+		ConsulSubmittedJobGraphStore graphStore2 = new ConsulSubmittedJobGraphStore(client, jobgraphsPath);
 
 		SubmittedJobGraphStore.SubmittedJobGraphListener listener = mock(SubmittedJobGraphStore.SubmittedJobGraphListener.class);
 
@@ -65,7 +66,7 @@ public class ConsulSubmittedJobGraphStoreTest {
 
 	@Test(expected = FlinkException.class)
 	public void testPutAndRemoveJobGraph() throws Exception {
-		ConsulSubmittedJobGraphStore graphStore1 = new ConsulSubmittedJobGraphStore(client);
+		ConsulSubmittedJobGraphStore graphStore1 = new ConsulSubmittedJobGraphStore(client, jobgraphsPath);
 
 		SubmittedJobGraphStore.SubmittedJobGraphListener listener = mock(SubmittedJobGraphStore.SubmittedJobGraphListener.class);
 
@@ -82,7 +83,7 @@ public class ConsulSubmittedJobGraphStoreTest {
 
 	@Test
 	public void testGetJobIds() throws Exception {
-		ConsulSubmittedJobGraphStore graphStore1 = new ConsulSubmittedJobGraphStore(client);
+		ConsulSubmittedJobGraphStore graphStore1 = new ConsulSubmittedJobGraphStore(client, jobgraphsPath);
 
 		SubmittedJobGraphStore.SubmittedJobGraphListener listener = mock(SubmittedJobGraphStore.SubmittedJobGraphListener.class);
 

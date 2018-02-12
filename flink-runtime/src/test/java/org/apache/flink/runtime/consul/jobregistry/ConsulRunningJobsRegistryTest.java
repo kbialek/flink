@@ -20,6 +20,7 @@ public class ConsulRunningJobsRegistryTest {
 	private ConsulProcess consul;
 	private ConsulClient client;
 	private ConsulSessionActivator sessionActivator;
+	private String jobRegistryPath = "test-jobregistry/";
 
 	@Before
 	public void setup() {
@@ -39,7 +40,7 @@ public class ConsulRunningJobsRegistryTest {
 
 	@Test
 	public void testSetJobRunning() throws Exception {
-		ConsulRunningJobsRegistry registry = new ConsulRunningJobsRegistry(client, sessionActivator.getHolder());
+		ConsulRunningJobsRegistry registry = new ConsulRunningJobsRegistry(client, sessionActivator.getHolder(), jobRegistryPath);
 
 		JobID jobID = JobID.generate();
 
@@ -49,7 +50,7 @@ public class ConsulRunningJobsRegistryTest {
 
 	@Test
 	public void testSetJobFinished() throws Exception {
-		ConsulRunningJobsRegistry registry = new ConsulRunningJobsRegistry(client, sessionActivator.getHolder());
+		ConsulRunningJobsRegistry registry = new ConsulRunningJobsRegistry(client, sessionActivator.getHolder(), jobRegistryPath);
 
 		JobID jobID = JobID.generate();
 
@@ -59,7 +60,7 @@ public class ConsulRunningJobsRegistryTest {
 
 	@Test
 	public void testClearJob() throws Exception {
-		ConsulRunningJobsRegistry registry = new ConsulRunningJobsRegistry(client, sessionActivator.getHolder());
+		ConsulRunningJobsRegistry registry = new ConsulRunningJobsRegistry(client, sessionActivator.getHolder(), jobRegistryPath);
 
 		JobID jobID = JobID.generate();
 
