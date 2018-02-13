@@ -295,7 +295,7 @@ under the License.
 					<suppressionsLocation>/tools/maven/suppressions-runtime.xml</suppressionsLocation>
 					<includeTestSourceDirectory>true</includeTestSourceDirectory>
 					<logViolationsToConsole>true</logViolationsToConsole>
-					<failOnViolation>true</failOnViolation>
+					<failOnViolation>false</failOnViolation>
 				</configuration>
 			</plugin>
 			<!-- Scala Compiler -->
