@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package org.apache.flink.runtime.highavailability.consul;
+package org.apache.flink.runtime.consul;
 
 import com.ecwid.consul.v1.ConsulClient;
 import org.apache.flink.api.common.JobID;
@@ -24,7 +24,6 @@ import org.apache.flink.configuration.Configuration;
 import org.apache.flink.runtime.blob.BlobStore;
 import org.apache.flink.runtime.blob.BlobStoreService;
 import org.apache.flink.runtime.checkpoint.CheckpointRecoveryFactory;
-import org.apache.flink.runtime.consul.ConsulSessionActivator;
 import org.apache.flink.runtime.consul.checkpoint.ConsulCheckpointRecoveryFactory;
 import org.apache.flink.runtime.consul.configuration.ConsulHighAvailabilityOptions;
 import org.apache.flink.runtime.consul.jobgraph.ConsulSubmittedJobGraphStore;
